@@ -128,7 +128,7 @@ class NewScriptsInDatabase extends Command
 
             // Setup query based on number of search fields
             if (count($tableFields['search']) > 1) {
-                $queryFormat = "SELECT %s, %s FROM %s WHERE CONCAT_WS(%s) LIKE '%%script%%'";
+                $queryFormat = "SELECT %s, %s FROM %s WHERE CONCAT_WS(',', %s) LIKE '%%script%%'";
             } else {
                 $queryFormat = "SELECT %s, %s FROM %s WHERE %s LIKE '%%script%%'";
             }
@@ -225,6 +225,8 @@ class NewScriptsInDatabase extends Command
      */
     protected function compareStatuses($statusOutput, $unserializedStatus)
     {
+        $alerts = [];
+
         foreach ($statusOutput as $tableName => $tableData) {
 
             // Find the associated table record
@@ -242,40 +244,51 @@ class NewScriptsInDatabase extends Command
 
                                 foreach ($hashes as $hashKey => $hashValue) {
 
-                                    // Process hashes
+                                    // Process hashes and remove hash keys that are found
                                     if (($key = array_search($hashValue, $unserializedStatus[$tableName][$keyId][$columnName], true)) !== false) {
+                                        // This leaves modified scripts, or when new scripts are added
                                         unset($unserializedStatus[$tableName][$keyId][$columnName][$key]);
+                                        // This allows us to see if any new scripts are added entirely
+                                        unset($statusOutput[$tableName][$keyId][$columnName][$key]);
                                     }
                                 }
 
-                                // Delete column record if empty
+                                // Delete column records if empty
                                 if (empty($unserializedStatus[$tableName][$keyId][$columnName])) {
                                     unset($unserializedStatus[$tableName][$keyId][$columnName]);
+                                }
+                                if (empty($statusOutput[$tableName][$keyId][$columnName])) {
+                                    unset($statusOutput[$tableName][$keyId][$columnName]);
                                 }
                             }
                         }
 
-                        // Delete key record if empty
+                        // Delete key records if empty
                         if (empty($unserializedStatus[$tableName][$keyId])) {
                             unset($unserializedStatus[$tableName][$keyId]);
+                        }
+                        if (empty($statusOutput[$tableName][$keyId])) {
+                            unset($statusOutput[$tableName][$keyId]);
                         }
                     }
                 }
 
-                // Delete table record if empty
+                // Delete table records if empty
                 if (empty($unserializedStatus[$tableName])) {
                     unset($unserializedStatus[$tableName]);
+                }
+                if (empty($statusOutput[$tableName])) {
+                    unset($statusOutput[$tableName]);
                 }
             }
         }
 
         // Look at remaining items to discover new scripts
-        if (empty($unserializedStatus)) {
+        if (empty($unserializedStatus) && empty($statusOutput)) {
             return [];
         }
 
         // Alert on remaining items
-        $alerts = [];
         foreach ($unserializedStatus as $tableName => $tableData) {
             foreach ($tableData as $keyId => $keyData) {
                 foreach ($keyData as $columnName => $hashes) {
@@ -285,7 +298,16 @@ class NewScriptsInDatabase extends Command
                 }
             }
         }
+        foreach ($statusOutput as $tableName => $tableData) {
+            foreach ($tableData as $keyId => $keyData) {
+                foreach ($keyData as $columnName => $hashes) {
+                    if (!empty($hashes)) {
+                        $alerts[] = "Table:'$tableName', Record: '$keyId', Column: '$columnName'";
+                    }
+                }
+            }
+        }
 
-        return $alerts;
+        return array_unique($alerts);
     }
 }

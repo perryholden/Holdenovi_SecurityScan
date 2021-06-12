@@ -21,6 +21,17 @@ This is a security extension that keeps track of any preexisting `<scripts>` in 
 1. If you remove any malware, then you will have to reset the status by running the command with the `--set-status` flag.
 1. If you use Capistrano, add the `var/scan` folder to your shared directories, otherwise, your status file will lost in subsequent deployments.
 
+## Testing scenarios
+
+1. New record:
+    1. New table
+    1. Existing table, new key
+    1. Existing table, existing key, new column
+1. Modified record:
+    1. Add new script to existing field
+    2. Modify script in field
+
+
 ## TODO
 
 * Add configurable email output to status and send email.
