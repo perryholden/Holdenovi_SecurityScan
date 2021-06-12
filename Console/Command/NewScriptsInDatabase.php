@@ -110,8 +110,8 @@ class NewScriptsInDatabase extends Command
      *
      * @param InputInterface $input
      * @param OutputInterface $output
-     *
      * @return void
+     * @throws \Magento\Framework\Exception\FileSystemException
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
@@ -246,9 +246,9 @@ class NewScriptsInDatabase extends Command
 
                                     // Process hashes and remove hash keys that are found
                                     if (($key = array_search($hashValue, $unserializedStatus[$tableName][$keyId][$columnName], true)) !== false) {
-                                        // This leaves modified scripts, or when new scripts are added
+                                        // This leaves modified scripts, or new scripts are added to existing records
                                         unset($unserializedStatus[$tableName][$keyId][$columnName][$key]);
-                                        // This allows us to see if any new scripts are added entirely
+                                        // This allows us to see if any new scripts are added to records that did not have them before
                                         unset($statusOutput[$tableName][$keyId][$columnName][$key]);
                                     }
                                 }
@@ -283,12 +283,12 @@ class NewScriptsInDatabase extends Command
             }
         }
 
-        // Look at remaining items to discover new scripts
+        // If both are empty, then nothing has changed
         if (empty($unserializedStatus) && empty($statusOutput)) {
             return [];
         }
 
-        // Alert on remaining items
+        // Alert for existing records that have been modified
         foreach ($unserializedStatus as $tableName => $tableData) {
             foreach ($tableData as $keyId => $keyData) {
                 foreach ($keyData as $columnName => $hashes) {
@@ -298,6 +298,7 @@ class NewScriptsInDatabase extends Command
                 }
             }
         }
+        // Alert for new records
         foreach ($statusOutput as $tableName => $tableData) {
             foreach ($tableData as $keyId => $keyData) {
                 foreach ($keyData as $columnName => $hashes) {
