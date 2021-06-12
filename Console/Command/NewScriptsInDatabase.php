@@ -167,13 +167,31 @@ class NewScriptsInDatabase extends Command
 
         $processResult = $this->processResults($statusOutput, $setStatus);
 
-        $output->writeln("<info>$processResult</info>");
+        // If there are no changes, do not output anything
+        if (!empty($processResult)) {
+
+            if (is_array($processResult)) {
+                // Write any error messages to output
+                $output->writeln('<error>New or modified script in the following records:</error>');
+
+                foreach ($processResult as $result) {
+                    $output->writeln("<info>$result</info>");
+                }
+
+                // TODO: Notify the admin of the changes with the config
+            } else {
+
+                // Write success message to output
+                $output->writeln("<info>$processResult</info>");
+            }
+
+        }
     }
 
     /**
      * @param array $statusOutput
      * @param boolean $setStatus
-     * @return string
+     * @return array|string
      * @throws \Magento\Framework\Exception\FileSystemException
      */
     protected function processResults($statusOutput, $setStatus)
@@ -196,9 +214,78 @@ class NewScriptsInDatabase extends Command
         $readDirectory = $this->filesystem->getDirectoryRead(DirectoryList::VAR_DIR);
         $unserializedStatus = $this->json->unserialize($readDirectory->readFile(self::FOLDER_PATH . DS . self::STATUS_FILE_NAME));
 
-        // TODO: Secondly, we want to compare the current status output with the saved status file
+        // Secondly, we want to compare the current status output with the saved status file
+        return $this->compareStatuses($statusOutput, $unserializedStatus);
+    }
 
-        // TODO: Finally, we want to notify the admin of the changes with the config
+    /**
+     * @param $statusOutput
+     * @param $unserializedStatus
+     * @return array
+     */
+    protected function compareStatuses($statusOutput, $unserializedStatus)
+    {
+        foreach ($statusOutput as $tableName => $tableData) {
 
+            // Find the associated table record
+            if (!empty($unserializedStatus[$tableName])) {
+
+                foreach ($tableData as $keyId => $keyData) {
+
+                    // Find associated key record
+                    if (!empty($unserializedStatus[$tableName][$keyId])) {
+
+                        foreach ($keyData as $columnName => $hashes) {
+
+                            // Find associated column record
+                            if (!empty($unserializedStatus[$tableName][$keyId][$columnName])) {
+
+                                foreach ($hashes as $hashKey => $hashValue) {
+
+                                    // Process hashes
+                                    if (($key = array_search($hashValue, $unserializedStatus[$tableName][$keyId][$columnName], true)) !== false) {
+                                        unset($unserializedStatus[$tableName][$keyId][$columnName][$key]);
+                                    }
+                                }
+
+                                // Delete column record if empty
+                                if (empty($unserializedStatus[$tableName][$keyId][$columnName])) {
+                                    unset($unserializedStatus[$tableName][$keyId][$columnName]);
+                                }
+                            }
+                        }
+
+                        // Delete key record if empty
+                        if (empty($unserializedStatus[$tableName][$keyId])) {
+                            unset($unserializedStatus[$tableName][$keyId]);
+                        }
+                    }
+                }
+
+                // Delete table record if empty
+                if (empty($unserializedStatus[$tableName])) {
+                    unset($unserializedStatus[$tableName]);
+                }
+            }
+        }
+
+        // Look at remaining items to discover new scripts
+        if (empty($unserializedStatus)) {
+            return [];
+        }
+
+        // Alert on remaining items
+        $alerts = [];
+        foreach ($unserializedStatus as $tableName => $tableData) {
+            foreach ($tableData as $keyId => $keyData) {
+                foreach ($keyData as $columnName => $hashes) {
+                    if (!empty($hashes)) {
+                        $alerts[] = "Table:'$tableName', Record: '$keyId', Column: '$columnName'";
+                    }
+                }
+            }
+        }
+
+        return $alerts;
     }
 }
