@@ -7,6 +7,7 @@
  */
 namespace Holdenovi\SecurityScan\Console\Command;
 
+use Holdenovi\SecurityScan\Model\EmailNotify;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DB\Adapter\AdapterInterface;
@@ -70,20 +71,28 @@ class NewScriptsInDatabase extends Command
     protected $json;
 
     /**
+     * @var EmailNotify
+     */
+    protected $sendEmail;
+
+    /**
      * @param ResourceConnection $resourceConnection
      * @param Filesystem $filesystem
      * @param Json $json
+     * @param EmailNotify $sendEmail
      * @param string|null $name
      */
     public function __construct(
         ResourceConnection $resourceConnection,
         Filesystem $filesystem,
         Json $json,
+        EmailNotify $sendEmail,
         string $name = null
     ) {
         $this->resourceConnection = $resourceConnection;
         $this->filesystem = $filesystem;
         $this->json = $json;
+        $this->sendEmail = $sendEmail;
         parent::__construct($name);
     }
 
@@ -171,17 +180,23 @@ class NewScriptsInDatabase extends Command
         if (!empty($processResult)) {
 
             if (is_array($processResult)) {
-                // Write any error messages to output
+                // Write any error messages to output and build email contents
+                $emailBody = "<p>New or modified script in the following records:</p>\n";
                 $output->writeln('<error>New or modified script in the following records:</error>');
-
+                
                 foreach ($processResult as $result) {
+                    $emailBody .= "<p>$result</p>\n";
                     $output->writeln("<info>$result</info>");
                 }
-
-                // TODO: Notify the admin of the changes with the config
+                $this->sendEmail->sendEmail(
+                    [
+                        'email_subject' => 'Security Alert: New or Modified Scripts',
+                        'email_body' => $emailBody,
+                    ]
+                );
             } else {
 
-                // Write success message to output
+                // Write success message to output (e.g. after status save) 
                 $output->writeln("<info>$processResult</info>");
             }
 

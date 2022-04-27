@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * @category    Holdenovi
+ * @package     SecurityScan
+ * @copyright   Copyright (c) 2022 Holdenovi LLC
+ * @license     https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
+ -->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Email:etc/email_templates.xsd">
+    <template id="security_scan_message"
+              label="Security Scan Message"
+              file="security_scan_message.html"
+              type="html"
+              module="Holdenovi_SecurityScan"
+              area="adminhtml"/>
+</config>
